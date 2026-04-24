@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>碳基音浪 · 歌单</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="nav-mount"></div>
+  <main class="container">
+    <div class="section-title">
+      <h2>📻 全部歌单</h2>
+      <button class="btn btn-primary" id="new-pl">+ 新建歌单</button>
+    </div>
+    <div class="card-grid" id="pl-grid"></div>
+  </main>
+
+  <script src="js/app.js"></script>
+  <script>
+    MW.renderNav('playlists');
+    const grid = document.getElementById('pl-grid');
+
+    function card(p) {
+      const d = document.createElement('div');
+      d.className = 'card';
+      d.innerHTML = `
+        <div class="cover-wrap">
+          <img class="cover" src="${p.coverUrl || 'https://picsum.photos/seed/pl/400'}" alt="">
+        </div>
+        <div class="meta">
+          <div class="title">${MW.escapeHtml(p.name)}</div>
+          <div class="sub">${MW.escapeHtml(p.description || '')} · by ${MW.escapeHtml(p.ownerName || '匿名')}</div>
+        </div>
+      `;
+      d.onclick = () => location.href = 'playlist.html?id=' + p.id;
+      return d;
+    }
+
+    document.getElementById('new-pl').onclick = async () => {
+      const name = prompt('歌单名');
+      if (!name) return;
+      const description = prompt('描述（可选）') || '';
+      const seed = Math.floor(Math.random()*999);
+      const created = await MW.api('/playlists', {
+        method: 'POST',
+        body: { name, description, ownerName: MW.getUser(), coverUrl: 'https://picsum.photos/seed/pl' + seed + '/600/400' }
+      });
+      grid.prepend(card(created));
+    };
+
+    (async () => {
+      const pls = await MW.api('/playlists');
+      pls.forEach(p => grid.appendChild(card(p)));
+    })();
+  </script>
+</body>
+</html>

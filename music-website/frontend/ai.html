@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>碳基音浪 · 教父AI音乐</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="nav-mount"></div>
+  <main class="container">
+    <section class="hero">
+      <h1>🎼 教父 AI 音乐</h1>
+      <p>描述你想要的音乐风格、情绪、场景，AI 会为你生成一段独一无二的原创音轨。</p>
+    </section>
+
+    <div id="ai-status" class="ai-status">检测中...</div>
+
+    <div class="split">
+      <div>
+        <div class="section-title"><h2>✨ 创作面板</h2></div>
+        <div class="form-row">
+          <label>提示词（中英文均可）</label>
+          <textarea id="prompt" class="input" placeholder="例：一段 80 年代风格的合成器流行乐，节奏轻快，带有夜晚霓虹的氛围"></textarea>
+        </div>
+        <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+          <div>
+            <label>风格</label>
+            <select id="style" class="input">
+              <option value="">不指定</option>
+              <option>Synthwave</option>
+              <option>Lo-Fi</option>
+              <option>Ambient</option>
+              <option>Electronic</option>
+              <option>Pop</option>
+              <option>Jazz</option>
+              <option>Cinematic</option>
+              <option>Folk</option>
+            </select>
+          </div>
+          <div>
+            <label>时长（秒）</label>
+            <select id="duration" class="input">
+              <option value="5">5</option>
+              <option value="8" selected>8</option>
+              <option value="15">15</option>
+              <option value="30">30</option>
+            </select>
+          </div>
+          <div>
+            <label>保存为歌曲</label>
+            <select id="save" class="input">
+              <option value="false">否</option>
+              <option value="true">是</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>歌曲标题（保存时使用，可选）</label>
+          <input id="title" class="input" placeholder="不填则自动取自提示词" />
+        </div>
+        <div style="text-align:right;">
+          <button class="btn btn-primary" id="go">🚀 生成</button>
+        </div>
+
+        <div class="section-title"><h2>🆕 我的最近生成</h2></div>
+        <div id="my-list"></div>
+      </div>
+      <aside>
+        <div class="section-title"><h2>🌐 大家的创作</h2></div>
+        <div id="all-list"></div>
+      </aside>
+    </div>
+  </main>
+
+  <script src="js/app.js"></script>
+  <script>
+    MW.renderNav('ai');
+
+    const statusBox = document.getElementById('ai-status');
+    (async () => {
+      const st = await MW.api('/ai/status');
+      statusBox.textContent = (st.configured ? '✅ ' : '⚠️ ') + st.message;
+      if (st.configured) statusBox.classList.add('ok');
+    })();
+
+    function genItem(g) {
+      const d = document.createElement('div');
+      d.className = 'gen-card';
+      const tag = g.status === 'succeeded' ? 'tag-success'
+                : g.status === 'fallback' ? 'tag-warn'
+                : g.status === 'failed' ? 'tag-danger' : '';
+      d.innerHTML = `
+        <div class="gen-meta">
+          <span>👤 ${MW.escapeHtml(g.requester)}</span>
+          <span class="tag ${tag}">${MW.escapeHtml(g.status)}</span>
+          <span>🎚 ${g.durationSec || 8}s</span>
+          ${g.style ? `<span class="tag">${MW.escapeHtml(g.style)}</span>` : ''}
+          <span class="spacer"></span>
+          <span>${new Date(g.createdAt).toLocaleString('zh-CN')}</span>
+        </div>
+        <div>${MW.escapeHtml(g.prompt)}</div>
+        ${g.audioUrl ? `<audio controls preload="none" src="${g.audioUrl}"></audio>` : ''}
+        ${g.status === 'fallback' ? '<div class="muted" style="margin-top:6px;font-size:12px;">⚠️ 使用了兜底音轨（Replicate 未配置或调用失败）</div>' : ''}
+      `;
+      return d;
+    }
+
+    async function refreshLists() {
+      const all = await MW.api('/ai/generations');
+      const allEl = document.getElementById('all-list');
+      const myEl = document.getElementById('my-list');
+      allEl.innerHTML = '';
+      myEl.innerHTML = '';
+      const me = MW.getUser();
+      const mine = all.filter(g => g.requester === me).slice(0, 8);
+      const others = all.filter(g => g.requester !== me).slice(0, 12);
+      if (!mine.length) myEl.innerHTML = '<div class="empty">还没有作品，快去生成一首吧 ✨</div>';
+      else mine.forEach(g => myEl.appendChild(genItem(g)));
+      others.forEach(g => allEl.appendChild(genItem(g)));
+    }
+    refreshLists();
+
+    document.getElementById('go').onclick = async () => {
+      const btn = document.getElementById('go');
+      const prompt = document.getElementById('prompt').value.trim();
+      if (!prompt) { alert('请填写提示词'); return; }
+      btn.disabled = true;
+      btn.textContent = '⏳ 生成中（可能需 30-90 秒）...';
+      try {
+        await MW.api('/ai/generate', {
+          method: 'POST',
+          body: {
+            requester: MW.getUser(),
+            prompt,
+            style: document.getElementById('style').value || null,
+            durationSec: Number(document.getElementById('duration').value),
+            saveAsSong: document.getElementById('save').value === 'true',
+            title: document.getElementById('title').value.trim() || null
+          }
+        });
+        document.getElementById('prompt').value = '';
+        document.getElementById('title').value = '';
+        await refreshLists();
+      } catch (e) {
+        alert('生成失败: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🚀 生成';
+      }
+    };
+  </script>
+</body>
+</html>

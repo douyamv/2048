@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>碳基音浪 · 首页</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="nav-mount"></div>
+  <main class="container">
+    <section class="hero">
+      <h1>🎧 用 AI，做属于你的音乐</h1>
+      <p>在碳基音浪，每个人都能用 AI 生成原创音乐、听优质电台、在碳基圈分享你的创作。无需账号，打开即用。</p>
+      <div class="btn-row">
+        <a href="ai.html" class="btn btn-primary">🎼 开始创作</a>
+        <a href="discover.html" class="btn btn-ghost">发现音乐 →</a>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <h2>🔥 热门榜单</h2>
+        <a href="discover.html" class="more">查看全部 →</a>
+      </div>
+      <div id="hot-songs" class="card-grid"></div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <h2>✨ 最新上架</h2>
+        <a href="discover.html" class="more">更多 →</a>
+      </div>
+      <div id="latest-songs" class="card-grid"></div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <h2>📻 精选歌单</h2>
+        <a href="playlists.html" class="more">全部歌单 →</a>
+      </div>
+      <div id="playlists" class="card-grid"></div>
+    </section>
+  </main>
+
+  <script src="js/app.js"></script>
+  <script>
+    MW.renderNav('home');
+
+    function songCard(s) {
+      const d = document.createElement('div');
+      d.className = 'card';
+      d.innerHTML = `
+        <div class="cover-wrap">
+          <img class="cover" src="${s.coverUrl || ''}" alt="" loading="lazy">
+          <div class="play-overlay">▶</div>
+        </div>
+        <div class="meta">
+          <div class="title">${MW.escapeHtml(s.title)}</div>
+          <div class="sub">${MW.escapeHtml(s.artist)} · ${MW.fmtCount(s.playCount)} 播放</div>
+        </div>
+      `;
+      d.onclick = () => MW.player.play(s, window.__hotList || [s]);
+      return d;
+    }
+
+    function playlistCard(p) {
+      const d = document.createElement('div');
+      d.className = 'card';
+      d.innerHTML = `
+        <div class="cover-wrap">
+          <img class="cover" src="${p.coverUrl || ''}" alt="" loading="lazy">
+          <div class="play-overlay">▶</div>
+        </div>
+        <div class="meta">
+          <div class="title">${MW.escapeHtml(p.name)}</div>
+          <div class="sub">${MW.escapeHtml(p.description || '')}</div>
+        </div>
+      `;
+      d.onclick = () => location.href = 'playlist.html?id=' + p.id;
+      return d;
+    }
+
+    (async () => {
+      try {
+        const hot = await MW.api('/songs/hot');
+        window.__hotList = hot;
+        const hotEl = document.getElementById('hot-songs');
+        hot.forEach(s => hotEl.appendChild(songCard(s)));
+
+        const latest = await MW.api('/songs/latest');
+        const latestEl = document.getElementById('latest-songs');
+        latest.forEach(s => latestEl.appendChild(songCard(s)));
+
+        const pls = await MW.api('/playlists');
+        const plEl = document.getElementById('playlists');
+        pls.forEach(p => plEl.appendChild(playlistCard(p)));
+      } catch (e) {
+        console.error(e);
+        document.querySelector('main').insertAdjacentHTML('beforeend',
+          '<div class="empty">加载失败：' + MW.escapeHtml(e.message) + '</div>');
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>碳基音浪 · 歌单详情</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="nav-mount"></div>
+  <main class="container">
+    <div id="header"></div>
+    <div class="song-list" id="songs"></div>
+  </main>
+
+  <script src="js/app.js"></script>
+  <script>
+    MW.renderNav('playlists');
+    const id = new URLSearchParams(location.search).get('id');
+    if (!id) { location.href = 'playlists.html'; }
+
+    function row(s, idx, list) {
+      const r = document.createElement('div');
+      r.className = 'song-row';
+      r.innerHTML = `
+        <div class="idx">${idx+1}</div>
+        <div class="info">
+          <img src="${s.coverUrl || ''}" alt="">
+          <div>
+            <div class="t">${MW.escapeHtml(s.title)}</div>
+            <div class="a">${MW.escapeHtml(s.artist)}</div>
+          </div>
+        </div>
+        <div class="genre">${MW.escapeHtml(s.genre || '')}</div>
+        <div class="plays">${MW.fmtCount(s.playCount)} 播放</div>
+        <div class="dur">${MW.fmtTime(s.durationSec)}</div>
+      `;
+      r.onclick = () => MW.player.play(s, list);
+      return r;
+    }
+
+    (async () => {
+      const p = await MW.api('/playlists/' + id);
+      document.getElementById('header').innerHTML = `
+        <section class="hero" style="display:grid;grid-template-columns:200px 1fr;gap:24px;align-items:end;">
+          <img src="${p.coverUrl}" style="width:200px;height:200px;border-radius:16px;object-fit:cover;">
+          <div>
+            <div class="muted">歌单</div>
+            <h1>${MW.escapeHtml(p.name)}</h1>
+            <p>${MW.escapeHtml(p.description || '')}</p>
+            <div class="muted">${p.songs.length} 首歌 · by ${MW.escapeHtml(p.ownerName)}</div>
+            <div class="btn-row" style="margin-top:14px;">
+              <button class="btn btn-primary" id="play-all">▶ 播放全部</button>
+              <a class="btn btn-ghost" href="discover.html">+ 添加歌曲</a>
+            </div>
+          </div>
+        </section>
+      `;
+      const list = document.getElementById('songs');
+      p.songs.forEach((s, i) => list.appendChild(row(s, i, p.songs)));
+      document.getElementById('play-all').onclick = () => p.songs[0] && MW.player.play(p.songs[0], p.songs);
+    })();
+  </script>
+</body>
+</html>

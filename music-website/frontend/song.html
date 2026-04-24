@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>碳基音浪 · 歌曲</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="nav-mount"></div>
+  <main class="container">
+    <div class="split">
+      <div>
+        <div id="song-head"></div>
+        <div class="section-title"><h2>💬 评论</h2></div>
+        <div class="form-row">
+          <textarea id="cm" class="input" placeholder="说点什么吧..."></textarea>
+          <div style="text-align:right;margin-top:8px;">
+            <button class="btn btn-primary btn-sm" id="post">发表评论</button>
+          </div>
+        </div>
+        <div id="comments"></div>
+      </div>
+      <aside>
+        <div class="section-title"><h2>🎯 添加到歌单</h2></div>
+        <div id="add-to-pl"></div>
+      </aside>
+    </div>
+  </main>
+  <script src="js/app.js"></script>
+  <script>
+    MW.renderNav();
+    const id = new URLSearchParams(location.search).get('id');
+
+    function commentItem(c) {
+      const d = document.createElement('div');
+      d.className = 'feed-card';
+      d.style.padding = '14px 18px';
+      const date = new Date(c.createdAt).toLocaleString('zh-CN');
+      d.innerHTML = `
+        <div class="feed-head">
+          <div class="feed-avatar">${MW.escapeHtml((c.author || '?').slice(0,1))}</div>
+          <div>
+            <div class="feed-author">${MW.escapeHtml(c.author)}</div>
+            <div class="feed-cat">${date}</div>
+          </div>
+        </div>
+        <div class="feed-content">${MW.escapeHtml(c.content)}</div>
+        <div class="feed-actions">
+          <button data-act="like">❤ ${MW.fmtCount(c.likeCount)}</button>
+        </div>
+      `;
+      d.querySelector('[data-act=like]').onclick = async (ev) => {
+        ev.stopPropagation();
+        const r = await MW.api('/comments/' + c.id + '/like', { method: 'POST' });
+        ev.target.textContent = '❤ ' + MW.fmtCount(r.likeCount);
+      };
+      return d;
+    }
+
+    (async () => {
+      const s = await MW.api('/songs/' + id);
+      document.getElementById('song-head').innerHTML = `
+        <section class="hero" style="display:grid;grid-template-columns:240px 1fr;gap:24px;align-items:end;">
+          <img src="${s.coverUrl}" style="width:240px;height:240px;border-radius:16px;object-fit:cover;">
+          <div>
+            <div class="muted">歌曲</div>
+            <h1>${MW.escapeHtml(s.title)}</h1>
+            <p>${MW.escapeHtml(s.artist)} · ${MW.escapeHtml(s.genre || '')} · ${MW.fmtCount(s.playCount)} 播放</p>
+            <div class="btn-row">
+              <button class="btn btn-primary" id="play-now">▶ 播放</button>
+              <button class="btn btn-ghost" id="like-btn">❤ ${MW.fmtCount(s.likeCount)}</button>
+            </div>
+          </div>
+        </section>
+      `;
+      document.getElementById('play-now').onclick = () => MW.player.play(s, [s]);
+      document.getElementById('like-btn').onclick = async (ev) => {
+        const r = await MW.api('/songs/' + s.id + '/like', { method: 'POST' });
+        ev.currentTarget.textContent = '❤ ' + MW.fmtCount(r.likeCount);
+      };
+
+      const cms = await MW.api('/comments?songId=' + id);
+      const cmEl = document.getElementById('comments');
+      if (!cms.length) cmEl.innerHTML = '<div class="empty">还没有评论，快来抢沙发吧</div>';
+      else cms.forEach(c => cmEl.appendChild(commentItem(c)));
+
+      document.getElementById('post').onclick = async () => {
+        const t = document.getElementById('cm').value.trim();
+        if (!t) return;
+        const c = await MW.api('/comments', {
+          method: 'POST',
+          body: { songId: Number(id), author: MW.getUser(), content: t }
+        });
+        document.getElementById('cm').value = '';
+        cmEl.prepend(commentItem(c));
+      };
+
+      const pls = await MW.api('/playlists');
+      const plEl = document.getElementById('add-to-pl');
+      pls.forEach(p => {
+        const r = document.createElement('div');
+        r.className = 'song-row';
+        r.style.gridTemplateColumns = '1fr auto';
+        r.innerHTML = `<div>${MW.escapeHtml(p.name)}</div><button class="btn btn-sm">+</button>`;
+        r.querySelector('button').onclick = async () => {
+          await MW.api('/playlists/' + p.id + '/songs/' + s.id, { method: 'POST' });
+          alert('已添加到「' + p.name + '」');
+        };
+        plEl.appendChild(r);
+      });
+    })();
+  </script>
+</body>
+</html>

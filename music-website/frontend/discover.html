@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>碳基音浪 · 发现</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="nav-mount"></div>
+  <main class="container">
+    <div class="section-title"><h2 id="page-title">🎶 发现音乐</h2></div>
+    <div class="feed-tabs" id="genre-tabs"></div>
+    <div class="song-list" id="song-list"></div>
+    <div style="text-align:center; margin-top:24px;">
+      <button class="btn" id="load-more">加载更多</button>
+    </div>
+  </main>
+
+  <script src="js/app.js"></script>
+  <script>
+    MW.renderNav('discover');
+
+    const genres = ['all','Electronic','Synthwave','Lo-Fi','Ambient','Pop','Indie','Jazz','Folk','AI'];
+    const tabs = document.getElementById('genre-tabs');
+    let genre = 'all';
+    let page = 0;
+    const list = document.getElementById('song-list');
+
+    const params = new URLSearchParams(location.search);
+    const q = params.get('q');
+    if (q) {
+      document.getElementById('page-title').textContent = '🔍 搜索 "' + q + '"';
+      tabs.style.display = 'none';
+    }
+
+    genres.forEach(g => {
+      const t = document.createElement('div');
+      t.className = 'feed-tab' + (g===genre?' active':'');
+      t.textContent = g==='all' ? '全部' : g;
+      t.onclick = () => { genre = g; page = 0; list.innerHTML=''; tabs.querySelectorAll('.feed-tab').forEach(x=>x.classList.remove('active')); t.classList.add('active'); load(); };
+      tabs.appendChild(t);
+    });
+
+    let cache = [];
+
+    function row(s, idx) {
+      const r = document.createElement('div');
+      r.className = 'song-row';
+      r.innerHTML = `
+        <div class="idx">${idx+1}</div>
+        <div class="info">
+          <img src="${s.coverUrl || ''}" alt="">
+          <div>
+            <div class="t">${MW.escapeHtml(s.title)}</div>
+            <div class="a">${MW.escapeHtml(s.artist)}</div>
+          </div>
+        </div>
+        <div class="genre">${MW.escapeHtml(s.genre || '')}</div>
+        <div class="plays">${MW.fmtCount(s.playCount)} 播放</div>
+        <div class="dur">${MW.fmtTime(s.durationSec)}</div>
+      `;
+      r.onclick = () => MW.player.play(s, cache);
+      return r;
+    }
+
+    async function load() {
+      try {
+        let data;
+        if (q) data = await MW.api('/songs/search?q=' + encodeURIComponent(q) + '&page=' + page + '&size=20');
+        else data = await MW.api('/songs?genre=' + genre + '&page=' + page + '&size=20');
+        const items = data.content || [];
+        const start = cache.length;
+        cache = cache.concat(items);
+        items.forEach((s, i) => list.appendChild(row(s, start + i)));
+        if (data.last) document.getElementById('load-more').style.display = 'none';
+        else document.getElementById('load-more').style.display = '';
+      } catch (e) { console.error(e); }
+    }
+
+    document.getElementById('load-more').onclick = () => { page++; load(); };
+    load();
+  </script>
+</body>
+</html>

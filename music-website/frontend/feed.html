@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>碳基音浪 · 碳基圈</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="nav-mount"></div>
+  <main class="container">
+    <div class="split">
+      <div>
+        <div class="section-title">
+          <h2>🌍 碳基圈</h2>
+        </div>
+
+        <div class="feed-card" style="margin-bottom:16px;">
+          <div class="form-row">
+            <textarea id="post-content" class="input" placeholder="分享你正在听的、想说的..."></textarea>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select id="post-cat" class="input" style="max-width:140px;">
+              <option>音乐</option><option>科技</option><option>生活</option>
+              <option>美食</option><option>宠物</option><option>摄影</option>
+              <option>财经</option><option>日常</option>
+            </select>
+            <input id="post-img" class="input" placeholder="图片 URL（可选）" />
+            <span class="spacer"></span>
+            <button class="btn btn-primary" id="post-btn">发布</button>
+          </div>
+        </div>
+
+        <div class="feed-tabs" id="cats"></div>
+        <div class="feed-list" id="feed-list"></div>
+      </div>
+      <aside>
+        <div class="section-title"><h2>🔥 热门</h2></div>
+        <div id="hot-list"></div>
+      </aside>
+    </div>
+  </main>
+
+  <script src="js/app.js"></script>
+  <script>
+    MW.renderNav('feed');
+    const cats = ['all','音乐','科技','生活','美食','宠物','摄影','财经','日常'];
+    let cat = 'all';
+    const tabs = document.getElementById('cats');
+    cats.forEach(c => {
+      const t = document.createElement('div');
+      t.className = 'feed-tab' + (c===cat?' active':'');
+      t.textContent = c==='all' ? '全部' : c;
+      t.onclick = () => { cat = c; tabs.querySelectorAll('.feed-tab').forEach(x=>x.classList.remove('active')); t.classList.add('active'); load(); };
+      tabs.appendChild(t);
+    });
+
+    function feedCard(p) {
+      const d = document.createElement('div');
+      d.className = 'feed-card';
+      const date = new Date(p.createdAt).toLocaleString('zh-CN');
+      d.innerHTML = `
+        <div class="feed-head">
+          <div class="feed-avatar">${MW.escapeHtml(p.avatar || (p.author||'?').slice(0,1))}</div>
+          <div>
+            <div class="feed-author">${MW.escapeHtml(p.author)}</div>
+            <div class="feed-cat">${MW.escapeHtml(p.category || '日常')} · ${date}</div>
+          </div>
+          ${p.isHot ? '<span class="hot-flag">🔥 HOT</span>' : ''}
+        </div>
+        <div class="feed-content">${MW.escapeHtml(p.content)}</div>
+        ${p.imageUrl ? `<img class="feed-img" src="${p.imageUrl}" alt="" loading="lazy">` : ''}
+        ${p.songId ? `<div class="muted" style="margin-bottom:10px;">🎵 关联歌曲 #${p.songId} <a href="song.html?id=${p.songId}">去听</a></div>` : ''}
+        <div class="feed-actions">
+          <button data-act="like">❤ ${MW.fmtCount(p.likeCount)}</button>
+          <button>💬 ${MW.fmtCount(p.replyCount)}</button>
+          <button>🔁 转发</button>
+        </div>
+      `;
+      d.querySelector('[data-act=like]').onclick = async (ev) => {
+        const r = await MW.api('/feed/' + p.id + '/like', { method: 'POST' });
+        ev.target.textContent = '❤ ' + MW.fmtCount(r.likeCount);
+      };
+      return d;
+    }
+
+    async function load() {
+      const list = document.getElementById('feed-list');
+      list.innerHTML = '<div class="empty">加载中...</div>';
+      const data = await MW.api('/feed?category=' + cat + '&size=30');
+      list.innerHTML = '';
+      (data.content || []).forEach(p => list.appendChild(feedCard(p)));
+      if (!list.children.length) list.innerHTML = '<div class="empty">暂时没有内容，发个动态打个头阵 ✨</div>';
+    }
+
+    (async () => {
+      const hot = await MW.api('/feed/hot');
+      const hotEl = document.getElementById('hot-list');
+      hot.forEach((p, i) => {
+        const r = document.createElement('div');
+        r.className = 'song-row';
+        r.style.gridTemplateColumns = '24px 1fr 60px';
+        r.innerHTML = `<div class="idx">${i+1}</div>
+          <div><div class="t">${MW.escapeHtml(p.content.slice(0, 28))}</div><div class="a">${MW.escapeHtml(p.author)}</div></div>
+          <div class="plays">❤ ${MW.fmtCount(p.likeCount)}</div>`;
+        hotEl.appendChild(r);
+      });
+    })();
+
+    document.getElementById('post-btn').onclick = async () => {
+      const content = document.getElementById('post-content').value.trim();
+      if (!content) return;
+      const body = {
+        author: MW.getUser(),
+        avatar: '🎧',
+        category: document.getElementById('post-cat').value,
+        content,
+        imageUrl: document.getElementById('post-img').value.trim() || null
+      };
+      await MW.api('/feed', { method: 'POST', body });
+      document.getElementById('post-content').value = '';
+      document.getElementById('post-img').value = '';
+      await load();
+    };
+
+    load();
+  </script>
+</body>
+</html>
