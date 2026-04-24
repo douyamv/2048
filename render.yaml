@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: music-website
+    runtime: docker
+    plan: free
+    region: singapore
+    branch: claude/music-website-java-mpoO8
+    dockerfilePath: ./music-website/Dockerfile
+    dockerContext: ./music-website
+    healthCheckPath: /api/songs/hot
+    envVars:
+      - key: REPLICATE_API_TOKEN
+        sync: false
+      - key: JAVA_TOOL_OPTIONS
+        value: -Xmx400m -XX:+UseSerialGC
