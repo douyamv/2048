@@ -203,13 +203,14 @@ def is_prime(n):
     return True
 
 
-def find_prime_order_curve():
+def find_prime_order_curve(a=0, b=7):
     """找一条玩具曲线，使其群阶为素数。素数阶下任意点都是生成元，
-    Pollard's rho 求逆总是存在，演示最干净。"""
-    for p in range(2003, 20000):
+    Pollard's rho 求逆总是存在，演示最干净。
+    默认 a=0, b=7 —— 和以太坊 secp256k1 完全相同的方程，只是 p 很小。"""
+    for p in range(2003, 50000):
         if not is_prime(p):
             continue
-        curve = Curve(a=2, b=2, p=p)
+        curve = Curve(a=a, b=b, p=p)
         # 4a^3 + 27b^2 != 0 才是合法曲线（无奇点）
         if (4 * curve.a ** 3 + 27 * curve.b ** 2) % p == 0:
             continue
@@ -231,11 +232,11 @@ def banner(t):
 def demo_break_once():
     banner("演示 1：在一条玩具曲线上，从公钥反推私钥")
 
-    # 自动找一条群阶为素数的小曲线 y^2 = x^3 + 2x + 2 (mod p)
-    curve, G, n = find_prime_order_curve()
+    # 自动找一条群阶为素数的「迷你以太坊曲线」 y^2 = x^3 + 7 (mod p)
+    curve, G, n = find_prime_order_curve(a=0, b=7)
     assert curve.is_on_curve(G)
 
-    print(f"曲线:  y^2 = x^3 + 2x + 2  (mod {curve.p})")
+    print(f"曲线:  y^2 = x^3 + 7  (mod {curve.p})   <- 和以太坊同方程，p 缩小")
     print(f"基点 G = {G}")
     print(f"群的阶 n = {n}   ->   sqrt(n) ≈ {isqrt(n)}  (破解代价的量级)")
 
@@ -261,13 +262,14 @@ def demo_break_once():
 def demo_scaling():
     banner("演示 2：曲线越大，破解时间怎么爆炸 (~ sqrt(n))")
 
-    # 一组阶逐渐变大的曲线，看 BSGS 的耗时随 sqrt(n) 增长
+    # 一组阶逐渐变大的曲线（都用以太坊方程 y^2 = x^3 + 7），
+    # 看 BSGS 的耗时随 sqrt(n) 增长
     curves = [
-        Curve(a=2, b=3, p=97),
-        Curve(a=2, b=3, p=2003),
-        Curve(a=2, b=3, p=50021),
-        Curve(a=2, b=3, p=1000003),
-        Curve(a=2, b=3, p=15485863),
+        Curve(a=0, b=7, p=97),
+        Curve(a=0, b=7, p=2003),
+        Curve(a=0, b=7, p=50021),
+        Curve(a=0, b=7, p=1000003),
+        Curve(a=0, b=7, p=15485863),
     ]
 
     print(f"{'素数域 p':>12} | {'群阶 n':>10} | {'sqrt(n)':>9} | {'BSGS 耗时':>12}")
