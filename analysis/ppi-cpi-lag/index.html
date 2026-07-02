@@ -1,0 +1,217 @@
+<title>PPI → CPI 传导滞后分析</title>
+<style>
+  .viz-root {
+    --surface-1: #fcfcfb; --plane: #f9f9f7;
+    --text-primary: #0b0b0b; --text-secondary: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --baseline: #c3c2b7; --border: rgba(11,11,11,0.10);
+    --ppi: #eb6834;  /* orange - producer side */
+    --cpi: #2a78d6;  /* blue - consumer side */
+    --good: #006300;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--text-primary);
+    background: var(--plane);
+    line-height: 1.55;
+    max-width: 960px; margin: 0 auto; padding: 28px 20px 64px;
+  }
+  @media (prefers-color-scheme: dark) {
+    .viz-root {
+      --surface-1: #1a1a19; --plane: #0d0d0d;
+      --text-primary: #ffffff; --text-secondary: #c3c2b7; --muted: #898781;
+      --grid: #2c2c2a; --baseline: #383835; --border: rgba(255,255,255,0.10);
+      --ppi: #d95926; --cpi: #3987e5; --good: #0ca30c;
+    }
+  }
+  .viz-root h1 { font-size: 26px; line-height: 1.2; margin: 0 0 6px; }
+  .viz-root h2 { font-size: 18px; margin: 40px 0 4px; }
+  .viz-root .sub { color: var(--text-secondary); font-size: 14px; margin: 0 0 8px; }
+  .viz-root .card { background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px; margin-top: 14px; }
+  .viz-root p { color: var(--text-secondary); font-size: 15px; }
+  .viz-root .tiles { display: grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr));
+    gap: 12px; margin-top: 16px; }
+  .viz-root .tile { background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px; }
+  .viz-root .tile .k { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing:.04em;}
+  .viz-root .tile .v { font-size: 28px; font-weight: 650; margin-top: 2px; }
+  .viz-root .tile .d { font-size: 12.5px; color: var(--text-secondary); margin-top: 2px; }
+  .viz-root .legend { display: flex; gap: 18px; align-items: center; font-size: 13.5px;
+    color: var(--text-secondary); margin: 2px 0 6px; flex-wrap: wrap; }
+  .viz-root .legend .it { display: flex; gap: 7px; align-items: center; }
+  .viz-root .swatch { width: 22px; height: 3px; border-radius: 2px; display:inline-block; }
+  .viz-root .dot { width: 9px; height: 9px; border-radius: 50%; display:inline-block; }
+  .viz-root svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .viz-root .chart-wrap { overflow-x: auto; }
+  .viz-root table { border-collapse: collapse; width: 100%; font-size: 13px;
+    font-variant-numeric: tabular-nums; margin-top: 8px; }
+  .viz-root th, .viz-root td { text-align: right; padding: 5px 9px; border-bottom: 1px solid var(--grid); }
+  .viz-root th:first-child, .viz-root td:first-child { text-align: left; }
+  .viz-root th { color: var(--muted); font-weight: 600; }
+  .viz-root details { margin-top: 14px; }
+  .viz-root summary { cursor: pointer; color: var(--text-secondary); font-size: 14px; }
+  .viz-root .tip { position: fixed; pointer-events: none; background: var(--surface-1);
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12.5px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.14); opacity: 0; transition: opacity .08s; z-index: 10;
+    color: var(--text-primary); }
+  .viz-root .tip b { font-weight: 650; }
+  .viz-root .note { font-size: 13px; color: var(--muted); margin-top: 10px; }
+  .viz-root .hl { color: var(--text-primary); font-weight: 600; }
+</style>
+
+<div class="viz-root">
+  <h1>美国 PPI → CPI 传导滞后分析</h1>
+  <p class="sub">近 24 个月（2024-06 ~ 2026-05）· PPI 最终需求 (PPIFIS) 与 CPI 全项 (CPIAUCSL)，数据来源：FRED / 美国劳工统计局 (BLS)</p>
+
+  <div class="tiles">
+    <div class="tile"><div class="k">互相关峰值滞后</div><div class="v">~2–3 <span style="font-size:16px;">个月</span></div><div class="d">PPI 领先 CPI（同比口径）</div></div>
+    <div class="tile"><div class="k">峰值相关系数 r</div><div class="v">0.93</div><div class="d">滞后 2–3 个月，n≈50</div></div>
+    <div class="tile"><div class="k">当前 PPI 同比</div><div class="v" style="color:var(--ppi)">6.4%</div><div class="d">2026-05，正在加速</div></div>
+    <div class="tile"><div class="k">当前 CPI 同比</div><div class="v" style="color:var(--cpi)">4.2%</div><div class="d">2026-05，跟随上行</div></div>
+  </div>
+
+  <h2>1. 同比走势：生产端在前，消费端在后</h2>
+  <p class="sub">两条线都是同比涨幅 (%)，同一坐标轴。注意 2026 年初 PPI 陡升、CPI 随后跟涨的“张口”。</p>
+  <div class="legend">
+    <span class="it"><span class="swatch" style="background:var(--ppi)"></span>PPI 同比（生产端）</span>
+    <span class="it"><span class="swatch" style="background:var(--cpi)"></span>CPI 同比（消费端）</span>
+  </div>
+  <div class="card chart-wrap"><svg id="lineChart" viewBox="0 0 900 380" role="img" aria-label="PPI 与 CPI 同比走势"></svg></div>
+
+  <h2>2. 互相关：把 PPI 前移几个月，与 CPI 最贴合？</h2>
+  <p class="sub">横轴为 PPI 领先 CPI 的月数，纵轴为皮尔逊相关系数 r（同比序列，2022 年至今全样本）。柱越高＝越同步。</p>
+  <div class="card chart-wrap"><svg id="lagChart" viewBox="0 0 900 300" role="img" aria-label="不同滞后期的相关系数"></svg></div>
+  <p class="note">说明：同比序列本身高度趋势化，因此各滞后期 r 都很高（0.89–0.93）；<span class="hl">真正的信号是峰值落在滞后 2–3 个月而非 0 个月</span>——即 PPI 的变化平均领先 CPI 约 2–3 个月。用月环比（去趋势）看，峰值落在 0–1 个月，领先更短更嘈杂。两种口径都指向“生产端略微领先消费端”的传导链条确实存在，但滞后不长。</p>
+
+  <h2>3. 结论</h2>
+  <div class="card">
+    <p style="color:var(--text-primary)"><b>存在这样的滞后传导规律，但幅度是“温和领先”而非“长鞭效应”。</b></p>
+    <p>· <b>方向成立：</b>PPI（工业/生产端）的转折普遍领先 CPI（消费端），同比口径下互相关峰值在 <span class="hl">滞后 2–3 个月</span>（r≈0.93），月环比平滑后峰值在 <span class="hl">滞后 0–1 个月</span>。</p>
+    <p>· <b>当下正是活教材：</b>2026-02 起 PPI 同比从 3.4% 陡升到 5 月的 6.4%，CPI 同比同期从 2.4% 跟涨到 4.2%——生产端先冲高、消费端滞后跟进，两线“张口”正在扩大，符合成本向下游传导的典型形态。</p>
+    <p>· <b>需要注意：</b>传导并非 1:1。PPI 波动明显大于 CPI（服务、房租等 CPI 权重项与工业品价格关系弱），因此 PPI 冲高时 CPI 通常只部分跟随。相关性高有一部分来自共同趋势，样本仅约 24–50 个月，勿过度外推。</p>
+  </div>
+
+  <details>
+    <summary>查看原始数据表（近 24 个月）</summary>
+    <table id="dataTable">
+      <thead><tr><th>月份</th><th>PPI 指数</th><th>CPI 指数</th><th>PPI 同比%</th><th>CPI 同比%</th><th>PPI 环比%</th><th>CPI 环比%</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p class="note">2025-10 的 CPI 原始值在数据源中缺失，已用前后两月线性插值（324.65）。</p>
+  </details>
+</div>
+
+<div class="tip" id="tip"></div>
+
+<script>
+const DATA = [
+ ["2024-06",144.87,313.04,2.96,2.97,0.45,-0.04],
+ ["2024-07",144.92,313.57,2.43,2.94,0.04,0.17],
+ ["2024-08",145.41,314.06,2.11,2.61,0.34,0.16],
+ ["2024-09",145.80,314.73,2.14,2.43,0.27,0.21],
+ ["2024-10",146.29,315.63,2.84,2.58,0.34,0.29],
+ ["2024-11",146.45,316.53,2.89,2.72,0.10,0.28],
+ ["2024-12",147.05,317.60,3.44,2.87,0.41,0.34],
+ ["2025-01",147.97,318.96,3.79,2.99,0.63,0.43],
+ ["2025-02",148.23,319.68,3.40,2.80,0.17,0.23],
+ ["2025-03",148.06,319.79,3.16,2.38,-0.12,0.03],
+ ["2025-04",147.66,320.30,2.40,2.33,-0.27,0.16],
+ ["2025-05",148.15,320.62,2.72,2.38,0.34,0.10],
+ ["2025-06",148.39,321.44,2.43,2.68,0.16,0.25],
+ ["2025-07",149.60,322.17,3.23,2.74,0.81,0.23],
+ ["2025-08",149.33,323.29,2.69,2.94,-0.18,0.35],
+ ["2025-09",150.25,324.25,3.05,3.02,0.61,0.30],
+ ["2025-10",150.44,324.65,2.83,2.86,0.13,0.13],
+ ["2025-11",151.05,325.06,3.15,2.70,0.41,0.13],
+ ["2025-12",151.59,326.03,3.09,2.65,0.36,0.30],
+ ["2026-01",152.47,326.59,3.04,2.39,0.58,0.17],
+ ["2026-02",153.24,327.46,3.38,2.43,0.50,0.27],
+ ["2026-03",154.38,330.29,4.27,3.29,0.75,0.87],
+ ["2026-04",156.01,332.41,5.66,3.78,1.06,0.64],
+ ["2026-05",157.66,333.98,6.42,4.17,1.06,0.47],
+];
+const LAGS = [[0,0.901],[1,0.927],[2,0.934],[3,0.934],[4,0.921],[5,0.904],[6,0.892]];
+
+const css = k => getComputedStyle(document.querySelector('.viz-root')).getPropertyValue(k).trim();
+const tip = document.getElementById('tip');
+function showTip(html, e){ tip.innerHTML = html; tip.style.opacity=1;
+  tip.style.left = Math.min(e.clientX+14, innerWidth-tip.offsetWidth-8)+'px';
+  tip.style.top = (e.clientY+14)+'px'; }
+function hideTip(){ tip.style.opacity=0; }
+
+// ---- Line chart ----
+(function(){
+  const svg = document.getElementById('lineChart');
+  const W=900,H=380, m={t:14,r:16,b:38,l:40};
+  const iw=W-m.l-m.r, ih=H-m.t-m.b;
+  const ymin=2, ymax=6.6;
+  const x = i => m.l + iw*i/(DATA.length-1);
+  const y = v => m.t + ih*(1-(v-ymin)/(ymax-ymin));
+  let s='';
+  // gridlines
+  for(let g=2; g<=6; g++){ const gy=y(g);
+    s+=`<line x1="${m.l}" y1="${gy}" x2="${W-m.r}" y2="${gy}" stroke="${css('--grid')}" stroke-width="1"/>`;
+    s+=`<text x="${m.l-8}" y="${gy+4}" text-anchor="end" font-size="11" fill="${css('--muted')}">${g}%</text>`; }
+  // x labels (every 3rd)
+  DATA.forEach((d,i)=>{ if(i%3===0||i===DATA.length-1){ s+=`<text x="${x(i)}" y="${H-14}" text-anchor="middle" font-size="10.5" fill="${css('--muted')}">${d[0].slice(2)}</text>`; }});
+  function path(idx,color){
+    let p=''; DATA.forEach((d,i)=>{ p+=(i?'L':'M')+x(i)+' '+y(d[idx]); });
+    s+=`<path d="${p}" fill="none" stroke="${color}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`;
+  }
+  path(3,css('--ppi')); path(4,css('--cpi'));
+  // end labels
+  const last=DATA.length-1;
+  s+=`<text x="${x(last)+6}" y="${y(DATA[last][3])+4}" font-size="12" font-weight="650" fill="${css('--ppi')}">PPI ${DATA[last][3]}%</text>`;
+  s+=`<text x="${x(last)+6}" y="${y(DATA[last][4])+4}" font-size="12" font-weight="650" fill="${css('--cpi')}">CPI ${DATA[last][4]}%</text>`;
+  // hover markers
+  DATA.forEach((d,i)=>{
+    [[3,'--ppi','PPI'],[4,'--cpi','CPI']].forEach(([idx,c])=>{
+      s+=`<circle cx="${x(i)}" cy="${y(d[idx])}" r="9" fill="transparent"
+           data-t="<b>${d[0]}</b><br>${c==='--ppi'?'PPI':'CPI'} 同比 <b>${d[idx]}%</b>"/>`;
+    });
+    // full-column hover
+    s+=`<rect x="${x(i)-((iw/(DATA.length-1))/2)}" y="${m.t}" width="${iw/(DATA.length-1)}" height="${ih}" fill="transparent"
+         data-t="<b>${d[0]}</b><br><span style='color:${css('--ppi')}'>●</span> PPI ${d[3]}%<br><span style='color:${css('--cpi')}'>●</span> CPI ${d[4]}%"/>`;
+  });
+  svg.innerHTML=s;
+  svg.querySelectorAll('[data-t]').forEach(el=>{
+    el.addEventListener('mousemove',e=>showTip(el.getAttribute('data-t'),e));
+    el.addEventListener('mouseleave',hideTip);
+  });
+})();
+
+// ---- Lag bar chart ----
+(function(){
+  const svg=document.getElementById('lagChart');
+  const W=900,H=300,m={t:20,r:20,b:44,l:44};
+  const iw=W-m.l-m.r, ih=H-m.t-m.b;
+  const ymin=0.86, ymax=0.94;
+  const bw=iw/LAGS.length;
+  const y=v=>m.t+ih*(1-(v-ymin)/(ymax-ymin));
+  let s='';
+  for(let g=0.86; g<=0.94; g+=0.02){ const gy=y(g);
+    s+=`<line x1="${m.l}" y1="${gy}" x2="${W-m.r}" y2="${gy}" stroke="${css('--grid')}" stroke-width="1"/>`;
+    s+=`<text x="${m.l-8}" y="${gy+4}" text-anchor="end" font-size="11" fill="${css('--muted')}">${g.toFixed(2)}</text>`; }
+  const rmax=Math.max(...LAGS.map(l=>l[1]));
+  LAGS.forEach((l,i)=>{
+    const bx=m.l+bw*i+bw*0.18, w=bw*0.64;
+    const by=y(l[1]), h=m.t+ih-by;
+    const peak = l[1]===rmax;
+    const fill = peak?css('--cpi'):css('--ppi');
+    s+=`<rect x="${bx}" y="${by}" width="${w}" height="${h}" rx="4" fill="${fill}" opacity="${peak?1:0.55}"
+         data-t="PPI 领先 <b>${l[0]} 个月</b><br>r = <b>${l[1]}</b>${peak?' ← 峰值':''}"/>`;
+    s+=`<text x="${bx+w/2}" y="${by-6}" text-anchor="middle" font-size="11" font-weight="${peak?700:500}" fill="${css('--text-secondary')}">${l[1]}</text>`;
+    s+=`<text x="${bx+w/2}" y="${H-16}" text-anchor="middle" font-size="11.5" fill="${css('--muted')}">${l[0]} 月</text>`;
+  });
+  s+=`<text x="${m.l}" y="${H-2}" font-size="11" fill="${css('--muted')}">← PPI 领先 CPI 的月数 →</text>`;
+  svg.innerHTML=s;
+  svg.querySelectorAll('[data-t]').forEach(el=>{
+    el.addEventListener('mousemove',e=>showTip(el.getAttribute('data-t'),e));
+    el.addEventListener('mouseleave',hideTip);
+  });
+})();
+
+// ---- table ----
+(function(){
+  const tb=document.querySelector('#dataTable tbody');
+  tb.innerHTML=DATA.map(d=>`<tr><td>${d[0]}</td><td>${d[1].toFixed(2)}</td><td>${d[2].toFixed(2)}</td><td>${d[3].toFixed(2)}</td><td>${d[4].toFixed(2)}</td><td>${d[5].toFixed(2)}</td><td>${d[6].toFixed(2)}</td></tr>`).join('');
+})();
+</script>
